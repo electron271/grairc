@@ -5,10 +5,12 @@ use std::{
 
 use ctru::prelude::Soc;
 
+use crate::irc::constants::IRC_HOST;
+
 pub struct IrcServer {
     addr: SocketAddr,
     stream: TcpStream,
-    soc_service: Soc,
+    _soc_service: Soc, // this always needs to be kept alive
 }
 
 impl IrcServer {
@@ -33,7 +35,7 @@ impl IrcServer {
         IrcServer {
             addr,
             stream,
-            soc_service: soc,
+            _soc_service: soc,
         }
     }
 
@@ -64,7 +66,29 @@ impl IrcServer {
                     .expect("Failed to send PONG response");
             }
 
-            // just printing raw for now ill make it look better later
+            msg if msg.contains("PRIVMSG") => {
+                let parts: Vec<&str> = msg.splitn(4, ' ').collect();
+                if parts.len() >= 4 {
+                    let nick_user_host = parts[0].trim_start_matches(':');
+                    let channel = parts[2];
+                    let message_content = parts[3].trim_start_matches(':').trim();
+
+                    let nick = nick_user_host.split('!').next();
+
+                    if let Some(nick) = nick {
+                        println!("{:<10} ({}): {}", nick, channel, message_content);
+                    }
+                }
+            }
+
+            msg if msg.starts_with(":") => {
+                if let Some((_, trailing)) = msg.split_once(" :") {
+                    println!("{}", trailing.trim());
+                } else {
+                    println!("{}", msg);
+                }
+            }
+
             msg => {
                 println!("{}", msg);
             }
@@ -78,9 +102,12 @@ impl IrcServer {
         match self.stream.read(&mut buffer) {
             Ok(size) if size > 0 => {
                 let message = String::from_utf8_lossy(&buffer[..size]);
-                //println!("{}", message);
-
-                self.irc_handler(&message);
+                for line in message.split("\r\n") {
+                    let line = line.trim();
+                    if !line.is_empty() {
+                        self.irc_handler(line);
+                    }
+                }
             }
             Ok(_) => {}                                                // no data read
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {} // no data available right now

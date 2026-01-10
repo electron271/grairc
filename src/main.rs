@@ -4,7 +4,7 @@ use ctru::{
 };
 
 use crate::irc::{
-    constants::{IRC_CHANNEL, IRC_HOST, IRC_NICK},
+    constants::{IRC_CHANNEL, IRC_HOST, IRC_NICK, IRC_PORT},
     server::IrcServer,
 };
 
@@ -27,7 +27,7 @@ fn main() {
     top_screen.select();
     println!("Initializing IRC client...");
 
-    let mut _irc_server = IrcServer::new(IRC_HOST);
+    let mut _irc_server = IrcServer::new(format!("{}:{}", IRC_HOST, IRC_PORT).as_str());
 
     println!("Identifying to IRC server...");
     _irc_server.irc_ident(IRC_NICK, IRC_CHANNEL).unwrap();
@@ -44,6 +44,7 @@ fn main() {
             match keyboard.launch(&apt, &gfx) {
                 Ok((text, Button::Right)) => {
                     _irc_server.irc_send(&text, IRC_CHANNEL).unwrap();
+                    println!("{0} ({1}): {2}", IRC_NICK, IRC_CHANNEL, text);
                 }
                 Ok((_, Button::Left)) => {}
                 Ok((_, Button::Middle)) => {}
