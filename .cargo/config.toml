@@ -1,0 +1,5 @@
+[build]
+target = "armv6k-nintendo-3ds"
+
+[unstable]
+build-std = ["std", "test"]
