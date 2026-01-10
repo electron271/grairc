@@ -28,7 +28,7 @@ impl IrcServer {
         stream
             .set_nonblocking(true)
             .expect("set_nonblocking call failed");
-        println!("Connected to IRC server!");
+        println!("Connected to the IRC socket successfully");
 
         IrcServer {
             addr,
@@ -49,6 +49,28 @@ impl IrcServer {
         Ok(())
     }
 
+    pub fn irc_send(&mut self, message: &str, channel: &str) -> Result<(), Error> {
+        let msg_cmd = format!("PRIVMSG {} :{}\r\n", channel, message);
+        self.stream.write_all(msg_cmd.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn irc_handler(&mut self, message: &str) {
+        match message {
+            msg if msg.starts_with("PING") => {
+                let response = msg.replace("PING", "PONG");
+                self.stream
+                    .write_all(response.as_bytes())
+                    .expect("Failed to send PONG response");
+            }
+
+            // just printing raw for now ill make it look better later
+            msg => {
+                println!("{}", msg);
+            }
+        }
+    }
+
     /// checks for incoming messages and handles them
     /// run this in the main loop
     pub fn handler(&mut self) -> Result<(), Error> {
@@ -56,19 +78,13 @@ impl IrcServer {
         match self.stream.read(&mut buffer) {
             Ok(size) if size > 0 => {
                 let message = String::from_utf8_lossy(&buffer[..size]);
-                println!("{}", message);
-                // handle the message (parsing, responding, etc.)
+                //println!("{}", message);
+
+                self.irc_handler(&message);
             }
-            Ok(_) => {
-                // no data received
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                // this error is fine just retry
-            }
-            Err(e) => {
-                println!("Error reading from IRC server: {}", e);
-                return Err(e);
-            }
+            Ok(_) => {}                                                // no data read
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {} // no data available right now
+            Err(e) => return Err(e),                                   // actual error
         }
         Ok(())
     }

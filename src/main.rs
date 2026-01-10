@@ -1,4 +1,7 @@
-use ctru::prelude::*;
+use ctru::{
+    applets::swkbd::{Button, SoftwareKeyboard},
+    prelude::*,
+};
 
 use crate::irc::{
     constants::{IRC_CHANNEL, IRC_HOST, IRC_NICK},
@@ -11,10 +14,17 @@ fn main() {
     let apt = Apt::new().expect("Couldn't obtain APT controller");
     let mut hid = Hid::new().expect("Couldn't obtain HID controller");
     let gfx = Gfx::new().expect("Couldn't obtain GFX controller");
-    let _console = Console::new(gfx.top_screen.borrow_mut());
     ctru::set_panic_hook(true);
 
-    println!("Press Start to exit");
+    let top_screen = Console::new(gfx.top_screen.borrow_mut());
+    let bottom_screen = Console::new(gfx.bottom_screen.borrow_mut());
+    let mut keyboard = SoftwareKeyboard::default();
+    bottom_screen.select();
+    println!("welcome to grairc!");
+    println!("START | exit");
+    println!("(A)   | send a message");
+
+    top_screen.select();
     println!("Initializing IRC client...");
 
     let mut _irc_server = IrcServer::new(IRC_HOST);
@@ -30,6 +40,15 @@ fn main() {
         hid.scan_input();
         if hid.keys_down().contains(KeyPad::START) {
             break;
+        } else if hid.keys_down().contains(KeyPad::A) {
+            match keyboard.launch(&apt, &gfx) {
+                Ok((text, Button::Right)) => {
+                    _irc_server.irc_send(&text, IRC_CHANNEL).unwrap();
+                }
+                Ok((_, Button::Left)) => {}
+                Ok((_, Button::Middle)) => {}
+                Err(e) => println!("Error launching keyboard: {:?}", e),
+            }
         }
 
         _irc_server.handler().unwrap();
