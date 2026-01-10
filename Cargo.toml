@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 ctru-rs = { git = "https://github.com/rust3ds/ctru-rs" }
+tokio = "1.49.0"
 
 [package.metadata.cargo-3ds]
 romfs_dir = "romfs"
