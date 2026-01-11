@@ -8,6 +8,7 @@ NOTE: currently the server is hardcoded, im changing this once i get setting sto
 - [ ] commands (/join, /msg, etc)
 - [ ] setting storage for server/user config
 - [ ] improve UI
+- [ ] tls support
 
 ## cia export
 run `./cia.sh` to build a cia file, you will need `makerom` and `bannertool` installed and in your PATH
