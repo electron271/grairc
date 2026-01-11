@@ -25,6 +25,7 @@ fn main() {
     println!("(A)   | send a message");
 
     top_screen.select();
+    println!("\x1b[30;47mgrairc v{}\x1b[0m", env!("CARGO_PKG_VERSION"));
     println!("Initializing IRC client...");
 
     let mut _irc_server = IrcServer::new(format!("{}:{}", IRC_HOST, IRC_PORT).as_str());
@@ -44,7 +45,7 @@ fn main() {
             match keyboard.launch(&apt, &gfx) {
                 Ok((text, Button::Right)) => {
                     _irc_server.irc_send(&text, IRC_CHANNEL).unwrap();
-                    println!("{0} ({1}): {2}", IRC_NICK, IRC_CHANNEL, text);
+                    println!("{:<10} ({}): {}", IRC_NICK, IRC_CHANNEL, text);
                 }
                 Ok((_, Button::Left)) => {}
                 Ok((_, Button::Middle)) => {}

@@ -5,7 +5,7 @@ use std::{
 
 use ctru::prelude::Soc;
 
-use crate::irc::constants::IRC_HOST;
+use crate::irc::constants::{IRC_CHANNEL, IRC_HOST, IRC_NICK};
 
 pub struct IrcServer {
     addr: SocketAddr,
@@ -111,7 +111,10 @@ impl IrcServer {
             }
             Ok(_) => {}                                                // no data read
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {} // no data available right now
-            Err(e) => return Err(e),                                   // actual error
+            Err(e) if e.kind() == std::io::ErrorKind::NetworkDown => {
+                panic!("Network connection lost. Unfortunately grairc cannot recover from this.");
+            }
+            Err(e) => return Err(e), // actual error
         }
         Ok(())
     }
