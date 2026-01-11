@@ -9,3 +9,6 @@ tokio = "1.49.0"
 
 [package.metadata.cargo-3ds]
 romfs_dir = "romfs"
+description = "grairc"
+authors = ["electron271"]
+icon_path = "metadata/icon.png"
