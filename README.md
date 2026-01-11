@@ -10,4 +10,4 @@ NOTE: currently the server is hardcoded, im changing this once i get setting sto
 - [ ] improve UI
 
 ## cia export
-coming soon
+run `./cia.sh` to build a cia file, you will need `makerom` and `bannertool` installed and in your PATH
