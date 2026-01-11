@@ -1,7 +1,7 @@
 # grairc
 irc client for the 3ds
 
-follow instructions on https://devkitpro.org/wiki/Getting_Started and https://github.com/rust3ds/ctru-rs/wiki/Getting-Started to get started
+NOTE: currently the server is hardcoded, im changing this once i get setting storage setup so you dont have to enter it every time you launch the app
 
 ## todo
 - [ ] multiple channels
