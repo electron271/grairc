@@ -5,9 +5,10 @@ NOTE: currently the server is hardcoded, im changing this once i get setting sto
 
 ## todo
 - [ ] multiple channels
-- [ ] commands (/join, /msg, etc)
+- [ ] private messages
 - [ ] setting storage for server/user config
 - [ ] improve UI
+- [ ] switch to citro2d for hardware rendering
 - [ ] tls support
 
 ## cia export
