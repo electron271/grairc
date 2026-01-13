@@ -1,58 +1,21 @@
-use ctru::{
-    applets::swkbd::{Button, SoftwareKeyboard},
-    prelude::*,
-};
+use ctru::{prelude::*, services::ptm::user::PTMUser};
 
-use crate::irc::{
-    constants::{IRC_CHANNEL, IRC_HOST, IRC_NICK, IRC_PORT},
-    server::IrcServer,
-};
+use crate::grairc::Grairc;
 
-mod irc;
+pub mod config;
+pub mod gfx;
+pub mod grairc;
+pub mod irc;
+pub mod state;
 
 fn main() {
-    let apt = Apt::new().expect("Couldn't obtain APT controller");
+    let mut apt = Apt::new().expect("Couldn't obtain APT controller");
     let mut hid = Hid::new().expect("Couldn't obtain HID controller");
     let gfx = Gfx::new().expect("Couldn't obtain GFX controller");
     ctru::set_panic_hook(true);
 
-    let top_screen = Console::new(gfx.top_screen.borrow_mut());
-    let bottom_screen = Console::new(gfx.bottom_screen.borrow_mut());
-    let mut keyboard = SoftwareKeyboard::default();
-    bottom_screen.select();
-    println!("welcome to grairc!");
-    println!("START | exit");
-    println!("(A)   | send a message");
+    let mut soc = Soc::new().expect("Couldn't initialize SOC service");
+    let mut ptmu = PTMUser::new().expect("Couldn't initialize PTM user service");
 
-    top_screen.select();
-    println!("\x1b[30;47mgrairc v{}\x1b[0m", env!("CARGO_PKG_VERSION"));
-    println!("Initializing IRC client...");
-
-    let mut _irc_server = IrcServer::new(format!("{}:{}", IRC_HOST, IRC_PORT).as_str());
-
-    println!("Identifying to IRC server...");
-    _irc_server.irc_ident(IRC_NICK, IRC_CHANNEL).unwrap();
-
-    println!("Entering main loop...");
-
-    while apt.main_loop() {
-        gfx.wait_for_vblank();
-
-        hid.scan_input();
-        if hid.keys_down().contains(KeyPad::START) {
-            break;
-        } else if hid.keys_down().contains(KeyPad::A) {
-            match keyboard.launch(&apt, &gfx) {
-                Ok((text, Button::Right)) => {
-                    _irc_server.irc_send(&text, IRC_CHANNEL).unwrap();
-                    println!("{:<10} ({}): {}", IRC_NICK, IRC_CHANNEL, text);
-                }
-                Ok((_, Button::Left)) => {}
-                Ok((_, Button::Middle)) => {}
-                Err(e) => println!("Error launching keyboard: {:?}", e),
-            }
-        }
-
-        _irc_server.handler().unwrap();
-    }
+    Grairc::new(&mut apt, &mut hid, &gfx, &mut soc, &mut ptmu).run();
 }
