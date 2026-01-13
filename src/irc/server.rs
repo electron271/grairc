@@ -4,8 +4,15 @@ use std::{
 };
 
 use ctru::prelude::Soc;
+use regex::Regex;
 
-use crate::{config::Config, irc::types::IrcMessage, state::State};
+use crate::{
+    irc::{
+        regex::{JOIN_REGEX, PART_REGEX, PRIVMSG_REGEX, RPL_NAMREPLY_REGEX},
+        types::{IrcChannel, IrcChannelType, IrcMessage},
+    },
+    state::State,
+};
 
 pub struct IrcServer<'a> {
     _addr: SocketAddr,
@@ -51,13 +58,39 @@ impl<'a> IrcServer<'a> {
         Ok(())
     }
 
-    pub fn irc_send(&mut self, message: &str, channel: &str) -> Result<(), Error> {
+    pub fn irc_send(
+        &mut self,
+        message: &str,
+        channel: &str,
+        nick: &str,
+        state: &mut State,
+    ) -> Result<(), Error> {
         let msg_cmd = format!("PRIVMSG {} :{}\r\n", channel, message);
         self.stream.write_all(msg_cmd.as_bytes())?;
+
+        state
+            .get_channel_by_name(channel)
+            .unwrap()
+            .messages
+            .push(IrcMessage {
+                nick: Some(nick.to_string()),
+                content: message.to_string(),
+            });
+
+        Ok(())
+    }
+
+    pub fn irc_raw_send(&mut self, message: &str) -> Result<(), Error> {
+        self.stream.write_all(message.as_bytes())?;
         Ok(())
     }
 
     pub fn irc_handler(&mut self, message: &str, state: &mut State) {
+        let privmsg_regex = Regex::new(PRIVMSG_REGEX).unwrap();
+        let rpl_namreply_regex = Regex::new(RPL_NAMREPLY_REGEX).unwrap();
+        let part_regex = Regex::new(PART_REGEX).unwrap();
+        let join_regex = Regex::new(JOIN_REGEX).unwrap();
+
         match message {
             msg if msg.starts_with("PING") => {
                 let response = msg.replace("PING", "PONG");
@@ -66,35 +99,55 @@ impl<'a> IrcServer<'a> {
                     .expect("Failed to send PONG response");
             }
 
-            msg if msg.contains("PRIVMSG") => {
-                let parts: Vec<&str> = msg.splitn(4, ' ').collect();
-                if parts.len() >= 4 {
-                    let nick_user_host = parts[0].trim_start_matches(':');
-                    let channel = parts[2];
-                    let message_content = parts[3].trim_start_matches(':').trim();
+            caps if privmsg_regex.captures(caps).is_some() => {
+                let captures = privmsg_regex.captures(caps).unwrap();
+                let nick = captures.get(1).unwrap().as_str();
+                let channel_name = captures.get(4).unwrap().as_str();
+                let content = captures.get(5).unwrap().as_str();
 
-                    let nick = nick_user_host.split('!').next();
-
-                    if let Some(ch) = state.channels.iter_mut().find(|ch| ch.name == channel) {
-                        ch.messages.push(IrcMessage {
-                            nick: Some(nick.unwrap_or("").to_string()),
-                            content: message_content.to_string(),
-                        });
-                    } else {
-                        let mut new_channel = crate::irc::types::IrcChannel {
-                            selected: false,
-                            name: channel.to_string(),
-                            users: vec![],
-                            messages: vec![],
-                            channel_type: crate::irc::types::IrcChannelType::Channel,
-                        };
-                        new_channel.messages.push(IrcMessage {
-                            nick: Some(nick.unwrap_or("").to_string()),
-                            content: message_content.to_string(),
-                        });
-                        state.channels.push(new_channel);
-                    }
+                if !channel_name.starts_with('#') {
+                    return;
                 }
+
+                if let Some(ch) = state.get_channel_by_name(channel_name) {
+                    println!("{:12}: {}", nick, content);
+                    ch.messages.push(IrcMessage {
+                        nick: Some(nick.to_string()),
+                        content: content.to_string(),
+                    });
+                }
+            }
+
+            caps if rpl_namreply_regex.captures(caps).is_some() => {
+                let captures = rpl_namreply_regex.captures(caps).unwrap();
+                let channel_name = captures.get(4).unwrap().as_str();
+                let user_list = captures.get(5).unwrap().as_str();
+
+                if !channel_name.starts_with('#') {
+                    return;
+                }
+
+                let channel_exists = state.get_channel_by_name(channel_name).is_some();
+                if !channel_exists {
+                    state.channels.push(IrcChannel {
+                        selected: false,
+                        name: channel_name.to_string(),
+                        users: vec![],
+                        messages: vec![],
+                        channel_type: IrcChannelType::Channel,
+                    });
+                }
+
+                let channel = state
+                    .channels
+                    .iter_mut()
+                    .find(|c| c.name == channel_name)
+                    .expect("what the fuck why the fuck ???? what (error code 839569838945 or something)");
+
+                channel.users = user_list
+                    .split_whitespace()
+                    .map(|user| user.to_string())
+                    .collect();
             }
 
             msg if msg.starts_with(":") => {

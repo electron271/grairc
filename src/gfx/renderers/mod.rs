@@ -5,10 +5,12 @@ use embedded_graphics::mono_font::ascii::FONT_6X10;
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::{PrimitiveStyle, Rectangle};
+use embedded_graphics::text::renderer::CharacterStyle;
 use embedded_graphics::text::{Alignment, Text};
 use tinytga::Tga;
 
 use crate::gfx::eg::DisplayTargets;
+use crate::irc::types::{IrcChannel, IrcMessage};
 use crate::state::State;
 
 pub fn wrap(text: &str, width: usize) -> String {
@@ -193,21 +195,73 @@ pub fn render_messages(targets: &mut DisplayTargets, state: &State) -> Result<()
         .into_styled(PrimitiveStyle::with_fill(Rgb888::BLACK))
         .draw(&mut targets.top)?;
 
-    let current_channel = state.current_channel_static();
     let mut next = Point::new(5, 10);
-    for message in &current_channel.messages {
-        let mut text = if let Some(nick) = &message.nick {
-            let nick_text = format!("{:12}:", nick);
-            let mut nick_style = MonoTextStyle::new(&FONT_6X10, Rgb888::BLACK);
-            nick_style.background_color = Some(Rgb888::WHITE);
-            next = Text::with_alignment(&nick_text, next, nick_style, Alignment::Left)
-                .draw(&mut targets.top)?;
-            format!(" {}\n", message.content)
+    let mut messages = &state.current_channel_static().messages;
+
+    // you know what at this point i just want to finish this fucking project
+    // if it works it works
+    let mut wrapped_messages: Vec<IrcMessage> = Vec::new();
+    for message in messages.iter() {
+        let text = if let Some(nick) = &message.nick {
+            format!("{:12}: {}", nick, message.content)
+        } else {
+            format!("{}", message.content)
+        };
+        let wrapped_content = wrap(&text, 50);
+        let content_without_nick = if let Some(nick) = &message.nick {
+            let prefix = format!("{:12}: ", nick);
+            wrapped_content
+                .lines()
+                .map(|line| {
+                    if line.starts_with(&prefix) {
+                        line[prefix.len()..].to_string()
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        } else {
+            wrapped_content
+        };
+        wrapped_messages.push(IrcMessage {
+            nick: message.nick.clone(),
+            content: content_without_nick.trim_end().to_string(),
+        });
+    }
+    messages = &wrapped_messages;
+
+    let max_lines = 22;
+    let mut line_count = 0;
+    let mut message_count = 0;
+    for message in messages.iter().rev() {
+        let content_line_count = message.content.matches('\n').count() + 1;
+        if line_count + content_line_count > max_lines {
+            break;
+        }
+        line_count += content_line_count;
+        message_count += 1;
+    }
+    let start = messages.len().saturating_sub(message_count);
+    let binding = messages[start..].to_vec();
+    messages = &binding;
+
+    let messages: Vec<IrcMessage> = messages
+        .iter()
+        .map(|msg| IrcMessage {
+            nick: msg.nick.clone(),
+            content: msg.content.trim_end().to_string(),
+        })
+        .collect();
+
+    for message in messages {
+        let text = if let Some(nick) = &message.nick {
+            format!("{:12}: {}\n", nick, message.content)
         } else {
             format!("{}\n", message.content)
         };
 
-        text = wrap(&text, 50);
+        let old_next = next;
 
         next = Text::with_alignment(
             &text,
@@ -217,7 +271,13 @@ pub fn render_messages(targets: &mut DisplayTargets, state: &State) -> Result<()
         )
         .draw(&mut targets.top)?;
 
-        next.x = 5;
+        // shit solution: draw just the nick over it with different colors
+        if let Some(nick) = &message.nick {
+            let mut style = MonoTextStyle::new(&FONT_6X10, Rgb888::BLACK);
+            style.set_background_color(Some(Rgb888::WHITE));
+            Text::with_alignment(&format!("{:12}:", nick), old_next, style, Alignment::Left)
+                .draw(&mut targets.top)?;
+        }
     }
     Ok(())
 }

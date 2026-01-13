@@ -240,6 +240,7 @@ dependencies = [
  "ctru-rs",
  "embedded-graphics",
  "once_cell",
+ "regex",
  "serde",
  "time",
  "tinytga",

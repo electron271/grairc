@@ -1,4 +1,5 @@
 use ctru::{
+    applets::swkbd::{Button, Features, SoftwareKeyboard},
     prelude::*,
     services::ptm::user::{BatteryLevel, PTMUser},
 };
@@ -95,6 +96,41 @@ impl<'a> Grairc<'a> {
                 }
                 keys if keys.contains(KeyPad::DPAD_UP) => {
                     self.state.switch_channels(-1);
+                }
+                keys if keys.contains(KeyPad::A) => {
+                    let selected_channel = self.state.current_channel_static().clone();
+                    if selected_channel.channel_type == IrcChannelType::System {
+                        continue;
+                    }
+
+                    let mut keyboard = SoftwareKeyboard::default();
+                    keyboard.set_features(Features::PREDICTIVE_INPUT);
+                    match keyboard.launch(self.apt, self.gfx) {
+                        Ok((text, Button::Right)) => {
+                            let nickname = self.state.config.as_ref().unwrap().nickname.clone();
+                            irc_server.irc_send(
+                                &text,
+                                &selected_channel.name,
+                                &nickname,
+                                &mut self.state,
+                            )
+                        }
+                        Ok((_, Button::Left)) => Ok(()),
+                        Ok((_, Button::Middle)) => Ok(()), // impossible to press
+                        Err(e) => panic!("Software keyboard failed: {e}"),
+                    }
+                    .unwrap()
+                }
+                keys if keys.contains(KeyPad::X) => {
+                    let mut keyboard = SoftwareKeyboard::default();
+                    keyboard.set_features(Features::PREDICTIVE_INPUT);
+                    match keyboard.launch(self.apt, self.gfx) {
+                        Ok((text, Button::Right)) => irc_server.irc_raw_send(&text),
+                        Ok((_, Button::Left)) => Ok(()),
+                        Ok((_, Button::Middle)) => Ok(()), // impossible to press
+                        Err(e) => panic!("Software keyboard failed: {e}"),
+                    }
+                    .unwrap()
                 }
                 _ => {}
             }

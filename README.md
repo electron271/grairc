@@ -11,6 +11,7 @@ NOTE: currently the server is hardcoded, im changing this once i get setting sto
 - [ ] switch to citro2d for hardware rendering
 - [ ] tls support
 - [ ] name colors
+- [ ] scroll back through message history
 
 ## cia export
 run `./cia.sh` to build a cia file, you will need `makerom` and `bannertool` installed and in your PATH
