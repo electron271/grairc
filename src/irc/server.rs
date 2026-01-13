@@ -150,6 +150,42 @@ impl<'a> IrcServer<'a> {
                     .collect();
             }
 
+            caps if join_regex.captures(caps).is_some() => {
+                let captures = join_regex.captures(caps).unwrap();
+                let nick = captures.get(1).unwrap().as_str();
+                let channel_name = captures.get(4).unwrap().as_str();
+
+                if !channel_name.starts_with('#') {
+                    return;
+                }
+
+                if let Some(ch) = state.get_channel_by_name(channel_name) {
+                    ch.users.push(nick.to_string());
+                    ch.messages.push(IrcMessage {
+                        nick: None,
+                        content: format!("-> {} joined", nick),
+                    });
+                }
+            }
+
+            caps if part_regex.captures(caps).is_some() => {
+                let captures = part_regex.captures(caps).unwrap();
+                let nick = captures.get(1).unwrap().as_str();
+                let channel_name = captures.get(4).unwrap().as_str();
+
+                if !channel_name.starts_with('#') {
+                    return;
+                }
+
+                if let Some(ch) = state.get_channel_by_name(channel_name) {
+                    ch.users.retain(|user| user != nick);
+                    ch.messages.push(IrcMessage {
+                        nick: None,
+                        content: format!("<- {} left", nick),
+                    });
+                }
+            }
+
             msg if msg.starts_with(":") => {
                 if let Some((_, trailing)) = msg.split_once(" :") {
                     state.get_system_channel().messages.push(IrcMessage {
@@ -177,7 +213,11 @@ impl<'a> IrcServer<'a> {
         match self.stream.read(&mut buffer) {
             Ok(size) if size > 0 => {
                 let message = String::from_utf8_lossy(&buffer[..size]);
-                self.irc_handler(&message, state);
+                for line in message.split("\r\n") {
+                    if !line.is_empty() {
+                        self.irc_handler(line, state);
+                    }
+                }
             }
             Ok(_) => {}                                                // no data read
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {} // no data available right now
