@@ -81,7 +81,8 @@ impl<'a> IrcServer<'a> {
     }
 
     pub fn irc_raw_send(&mut self, message: &str) -> Result<(), Error> {
-        self.stream.write_all(message.as_bytes())?;
+        self.stream
+            .write_all(format!("{}\r\n", message).as_bytes())?;
         Ok(())
     }
 
